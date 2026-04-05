@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quantum Tunneling Simulator</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Orbitron:wght@400;700;900&display=swap');
+
+  :root {
+    --bg: #03050f;
+    --panel: #080d1e;
+    --border: #1a2a5e;
+    --incident: #00d4ff;
+    --tunnel: #ff6b35;
+    --transmitted: #39ff14;
+    --barrier: rgba(255, 200, 50, 0.15);
+    --barrier-stroke: #ffc832;
+    --text: #c8d8ff;
+    --muted: #4a5a8a;
+    --accent: #7b5fff;
+    --glow-blue: 0 0 20px rgba(0,212,255,0.4);
+    --glow-green: 0 0 20px rgba(57,255,20,0.4);
+    --glow-orange: 0 0 20px rgba(255,107,53,0.4);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+    background-image:
+      radial-gradient(ellipse at 20% 50%, rgba(123,95,255,0.05) 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 20%, rgba(0,212,255,0.05) 0%, transparent 50%);
+  }
+
+  /* starfield */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      radial-gradient(1px 1px at 10% 20%, rgba(255,255,255,0.15) 0%, transparent 100%),
+      radial-gradient(1px 1px at 30% 70%, rgba(255,255,255,0.1) 0%, transparent 100%),
+      radial-gradient(1px 1px at 50% 40%, rgba(255,255,255,0.12) 0%, transparent 100%),
+      radial-gradient(1px 1px at 70% 85%, rgba(255,255,255,0.08) 0%, transparent 100%),
+      radial-gradient(1px 1px at 90% 15%, rgba(255,255,255,0.15) 0%, transparent 100%),
+      radial-gradient(1px 1px at 15% 90%, rgba(255,255,255,0.1) 0%, transparent 100%),
+      radial-gradient(1px 1px at 60% 60%, rgba(255,255,255,0.08) 0%, transparent 100%),
+      radial-gradient(1px 1px at 80% 45%, rgba(255,255,255,0.12) 0%, transparent 100%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .app {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 20px 40px;
+    gap: 20px;
+    max-width: 1340px;
+    margin: 0 auto;
+  }
+
+  /* HEADER */
+  header {
+    text-align: center;
+    width: 100%;
+  }
+
+  .title-label {
+    font-size: 10px;
+    letter-spacing: 4px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  h1 {
+    font-family: 'Orbitron', monospace;
+    font-size: clamp(22px, 4vw, 40px);
+    font-weight: 900;
+    letter-spacing: 2px;
+    background: linear-gradient(135deg, #00d4ff, #7b5fff, #39ff14);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-shadow: none;
+    line-height: 1.1;
+  }
+
+  .subtitle {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 8px;
+    letter-spacing: 1px;
+  }
+
+  /* MAIN LAYOUT */
+  .main-grid {
+    display: grid;
+    grid-template-columns: 1fr 280px;
+    gap: 16px;
+    width: 100%;
+  }
+
+  /* CANVAS PANEL */
+  .canvas-panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .canvas-panel::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    opacity: 0.6;
+  }
+
+  canvas {
+    width: 100%;
+    height: auto;
+    display: block;
+    border-radius: 8px;
+  }
+
+  .canvas-label {
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  /* LEGEND */
+  .legend {
+    display: flex;
+    gap: 20px;
+    margin-top: 14px;
+    flex-wrap: wrap;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+  }
+
+  .legend-line {
+    width: 28px;
+    height: 2px;
+    border-radius: 2px;
+  }
+
+  /* SIDE PANEL */
+  .side-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  /* TRANSMISSION DISPLAY */
+  .t-display {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .t-display::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at center, rgba(57,255,20,0.04) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .t-label {
+    font-size: 9px;
+    letter-spacing: 3px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  .t-value {
+    font-family: 'Orbitron', monospace;
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--transmitted);
+    text-shadow: var(--glow-green);
+    line-height: 1;
+    transition: color 0.3s, text-shadow 0.3s;
+  }
+
+  .t-percent {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+
+  .t-regime {
+    margin-top: 12px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    display: inline-block;
+    transition: all 0.3s;
+  }
+
+  .regime-tunnel {
+    background: rgba(255,107,53,0.15);
+    border: 1px solid rgba(255,107,53,0.4);
+    color: var(--tunnel);
+  }
+
+  .regime-classical {
+    background: rgba(57,255,20,0.1);
+    border: 1px solid rgba(57,255,20,0.3);
+    color: var(--transmitted);
+  }
+
+  /* SLIDERS PANEL */
+  .sliders-panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    flex: 1;
+  }
+
+  .sliders-title {
+    font-size: 9px;
+    letter-spacing: 3px;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  .slider-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .slider-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+
+  .slider-name {
+    font-size: 11px;
+    color: var(--text);
+    letter-spacing: 0.5px;
+  }
+
+  .slider-symbol {
+    font-size: 9px;
+    color: var(--muted);
+    font-style: italic;
+  }
+
+  .slider-val {
+    font-family: 'Orbitron', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    min-width: 50px;
+    text-align: right;
+  }
+
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 4px;
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+
+  input[type=range]:hover { opacity: 0.9; }
+
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid var(--bg);
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+
+  input[type=range]::-webkit-slider-thumb:hover {
+    transform: scale(1.25);
+  }
+
+  #energySlider {
+    background: linear-gradient(90deg, var(--incident) 0%, var(--incident) var(--pct, 40%), #1a2a5e var(--pct, 40%), #1a2a5e 100%);
+  }
+  #energySlider::-webkit-slider-thumb {
+    background: var(--incident);
+    box-shadow: 0 0 10px rgba(0,212,255,0.7);
+  }
+
+  #barrierSlider {
+    background: linear-gradient(90deg, var(--barrier-stroke) 0%, var(--barrier-stroke) var(--pct, 60%), #1a2a5e var(--pct, 60%), #1a2a5e 100%);
+  }
+  #barrierSlider::-webkit-slider-thumb {
+    background: var(--barrier-stroke);
+    box-shadow: 0 0 10px rgba(255,200,50,0.7);
+  }
+
+  #widthSlider {
+    background: linear-gradient(90deg, var(--accent) 0%, var(--accent) var(--pct, 30%), #1a2a5e var(--pct, 30%), #1a2a5e 100%);
+  }
+  #widthSlider::-webkit-slider-thumb {
+    background: var(--accent);
+    box-shadow: 0 0 10px rgba(123,95,255,0.7);
+  }
+
+  /* FORMULA BOX */
+  .formula-box {
+    background: rgba(123,95,255,0.06);
+    border: 1px solid rgba(123,95,255,0.2);
+    border-radius: 10px;
+    padding: 14px;
+    font-size: 10px;
+    color: var(--muted);
+    line-height: 1.8;
+    letter-spacing: 0.3px;
+  }
+
+  .formula-box span {
+    color: var(--accent);
+    font-family: 'Orbitron', monospace;
+    font-size: 9px;
+  }
+
+  /* DIVIDER */
+  .divider {
+    width: 100%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border), transparent);
+  }
+
+  /* TEAM PANEL — Crew Manifest Style */
+  .team-panel {
+    background: transparent;
+    border: none;
+    padding: 0;
+    position: relative;
+    overflow: visible;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    grid-column: 1 / -1;
+  }
+
+  .crew-header {
+    text-align: center;
+    margin-bottom: 28px;
+  }
+
+  .crew-manifest-label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    font-size: 9px;
+    letter-spacing: 5px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  .crew-manifest-label::before,
+  .crew-manifest-label::after {
+    content: '';
+    width: 40px;
+    height: 1px;
+    background: var(--muted);
+    opacity: 0.5;
+  }
+
+  .crew-big-title {
+    font-family: 'Orbitron', monospace;
+    font-size: clamp(28px, 4vw, 48px);
+    font-weight: 900;
+    letter-spacing: 3px;
+    line-height: 1;
+  }
+
+  .crew-big-title .our {
+    color: #00d4ff;
+  }
+
+  .crew-big-title .team-word {
+    color: #ffc832;
+    font-style: italic;
+  }
+
+  .crew-underline {
+    width: 60px;
+    height: 3px;
+    background: linear-gradient(90deg, #7b5fff, #00d4ff);
+    margin: 12px auto 0;
+    border-radius: 2px;
+  }
+
+  .crew-list {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 14px;
+    width: 100%;
+  }
+
+  .crew-card {
+    background: linear-gradient(160deg, #0d1530 60%, #0a1228 100%);
+    border: 1px solid rgba(0,212,255,0.15);
+    border-radius: 4px;
+    padding: 20px 18px 16px;
+    position: relative;
+    overflow: hidden;
+    cursor: default;
+    transition: border-color 0.3s, transform 0.25s, box-shadow 0.3s;
+  }
+
+  /* corner triangle accent */
+  .crew-card::after {
+    content: '';
+    position: absolute;
+    top: 0; right: 0;
+    width: 0; height: 0;
+    border-style: solid;
+    border-width: 0 32px 32px 0;
+    transition: border-color 0.3s;
+  }
+
+  .crew-card.c1::after { border-color: transparent #00d4ff transparent transparent; }
+  .crew-card.c2::after { border-color: transparent #ffc832 transparent transparent; }
+  .crew-card.c3::after { border-color: transparent #7b5fff transparent transparent; }
+  .crew-card.c4::after { border-color: transparent #39ff14 transparent transparent; }
+  .crew-card.c5::after { border-color: transparent #00d4ff transparent transparent; }
+
+  /* bottom left subtle glow line */
+  .crew-card::before {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 1px;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .crew-card.c1::before { background: linear-gradient(90deg, #00d4ff, transparent); }
+  .crew-card.c2::before { background: linear-gradient(90deg, #ffc832, transparent); }
+  .crew-card.c3::before { background: linear-gradient(90deg, #7b5fff, transparent); }
+  .crew-card.c4::before { background: linear-gradient(90deg, #39ff14, transparent); }
+  .crew-card.c5::before { background: linear-gradient(90deg, #00d4ff, transparent); }
+
+  .crew-card:hover {
+    border-color: rgba(0,212,255,0.4);
+    transform: translateY(-4px);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.4), 0 0 20px rgba(0,212,255,0.08);
+  }
+
+  .crew-card:hover::before { opacity: 1; }
+
+  .crew-card-dept {
+    font-size: 7.5px;
+    letter-spacing: 2.5px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  .crew-card-dept span {
+    color: rgba(0,212,255,0.6);
+  }
+
+  .crew-card-name {
+    font-family: 'Orbitron', monospace;
+    font-size: clamp(11px, 1.1vw, 14px);
+    font-weight: 700;
+    color: #e8f0ff;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+    line-height: 1.2;
+  }
+
+  .crew-card-roll {
+    font-size: 9px;
+    font-family: 'Orbitron', monospace;
+    letter-spacing: 1.5px;
+    margin-bottom: 14px;
+  }
+
+  .crew-card.c1 .crew-card-roll { color: #00d4ff; }
+  .crew-card.c2 .crew-card-roll { color: #ffc832; }
+  .crew-card.c3 .crew-card-roll { color: #7b5fff; }
+  .crew-card.c4 .crew-card-roll { color: #39ff14; }
+  .crew-card.c5 .crew-card-roll { color: #00d4ff; }
+
+  .crew-card-footer {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 8px;
+    letter-spacing: 1.5px;
+    color: rgba(74,90,138,0.8);
+    text-transform: uppercase;
+    border-top: 1px solid rgba(26,42,94,0.8);
+    padding-top: 10px;
+  }
+
+  .crew-card-footer::before {
+    content: '◆';
+    font-size: 5px;
+    color: rgba(0,212,255,0.4);
+  }
+
+  @media (max-width: 1100px) {
+    .main-grid { grid-template-columns: 1fr; }
+    .crew-list { grid-template-columns: repeat(3, 1fr); }
+  }
+
+  @media (max-width: 700px) {
+    .main-grid { grid-template-columns: 1fr; }
+    .crew-list { grid-template-columns: repeat(2, 1fr); }
+    .crew-big-title { font-size: 28px; }
+    .app { padding: 16px 12px 32px; }
+  }
+
+  @media (max-width: 420px) {
+    .crew-list { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <div class="title-label">Quantum Mechanics Visualization</div>
+    <h1>Quantum Tunneling Simulator</h1>
+  </header>
+
+  <div class="main-grid">
+
+    <!-- CANVAS -->
+    <div class="canvas-panel">
+      <div class="canvas-label">Wavefunction ψ(x) &amp; Potential V(x)</div>
+      <canvas id="qCanvas" width="720" height="380"></canvas>
+      <div class="legend">
+        <div class="legend-item">
+          <div class="legend-line" style="background:var(--incident); box-shadow:var(--glow-blue);"></div>
+          Incident wave ψᵢₙ
+        </div>
+        <div class="legend-item">
+          <div class="legend-line" style="background:var(--tunnel); box-shadow:var(--glow-orange);"></div>
+          Tunneling region ψᵦ
+        </div>
+        <div class="legend-item">
+          <div class="legend-line" style="background:var(--transmitted); box-shadow:var(--glow-green);"></div>
+          Transmitted wave ψₜ
+        </div>
+        <div class="legend-item">
+          <div class="legend-line" style="background:var(--barrier-stroke); opacity:0.7;"></div>
+          Barrier V(x)
+        </div>
+      </div>
+    </div>
+
+    <!-- SIDE -->
+    <div class="side-panel">
+
+      <!-- T Display -->
+      <div class="t-display">
+        <div class="t-label">Transmission Probability</div>
+        <div class="t-value" id="tVal">0.000</div>
+        <div class="t-percent" id="tPct">0.0%</div>
+        <div class="t-regime regime-tunnel" id="tRegime">QUANTUM TUNNELING</div>
+      </div>
+
+      <!-- Sliders -->
+      <div class="sliders-panel">
+        <div class="sliders-title">Parameters</div>
+
+        <div class="slider-group">
+          <div class="slider-header">
+            <div>
+              <div class="slider-name">Particle Energy</div>
+              <div class="slider-symbol">E (kinetic energy)</div>
+            </div>
+            <div class="slider-val" style="color:var(--incident);" id="eVal">0.40</div>
+          </div>
+          <input type="range" id="energySlider" min="0.05" max="2.0" step="0.01" value="0.40">
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="slider-group">
+          <div class="slider-header">
+            <div>
+              <div class="slider-name">Barrier Height</div>
+              <div class="slider-symbol">V₀ (potential energy)</div>
+            </div>
+            <div class="slider-val" style="color:var(--barrier-stroke);" id="vVal">1.00</div>
+          </div>
+          <input type="range" id="barrierSlider" min="0.1" max="3.0" step="0.05" value="1.00">
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="slider-group">
+          <div class="slider-header">
+            <div>
+              <div class="slider-name">Barrier Width</div>
+              <div class="slider-symbol">a (spatial extent)</div>
+            </div>
+            <div class="slider-val" style="color:var(--accent);" id="aVal">2.0</div>
+          </div>
+          <input type="range" id="widthSlider" min="0.5" max="6.0" step="0.1" value="2.0">
+        </div>
+
+
+      </div>
+    </div>
+
+  </div>
+
+    <!-- TEAM — Crew Manifest -->
+    <div class="team-panel">
+      <div class="crew-header">
+        <div class="crew-manifest-label">Crew Manifest</div>
+        <div class="crew-big-title"><span class="our">OUR</span> <span class="team-word">TEAM</span></div>
+        <div class="crew-underline"></div>
+      </div>
+      <div class="crew-list">
+
+        <div class="crew-card c1">
+          <div class="crew-card-dept">MBA TECH IT · <span>1026</span></div>
+          <div class="crew-card-name">Palka Jain</div>
+
+          <div class="crew-card-footer">Team Member</div>
+        </div>
+
+        <div class="crew-card c2">
+          <div class="crew-card-dept">MBA TECH IT · <span>1027</span></div>
+          <div class="crew-card-name">Niyanshi Jain</div>
+
+          <div class="crew-card-footer">Team Member</div>
+        </div>
+
+        <div class="crew-card c3">
+          <div class="crew-card-dept">MBA TECH IT · <span>1028</span></div>
+          <div class="crew-card-name">Avi Jain</div>
+
+          <div class="crew-card-footer">Team Member</div>
+        </div>
+
+        <div class="crew-card c4">
+          <div class="crew-card-dept">MBA TECH IT · <span>1036</span></div>
+          <div class="crew-card-name">Vedika Kalia</div>
+
+          <div class="crew-card-footer">Team Member</div>
+        </div>
+
+        <div class="crew-card c5">
+          <div class="crew-card-dept">MBA TECH IT · <span>1038</span></div>
+          <div class="crew-card-name">Soha Khakhra</div>
+
+          <div class="crew-card-footer">Team Member</div>
+        </div>
+
+      </div>
+    </div>
+
+</div>
+<script>
+const canvas = document.getElementById('qCanvas');
+const ctx = canvas.getContext('2d');
+
+let E = 0.40, V = 1.00, a = 2.0;
+let phase = 0;
+let animId;
+
+// UI refs
+const energySlider = document.getElementById('energySlider');
+const barrierSlider = document.getElementById('barrierSlider');
+const widthSlider = document.getElementById('widthSlider');
+const eVal = document.getElementById('eVal');
+const vVal = document.getElementById('vVal');
+const aVal = document.getElementById('aVal');
+const tVal = document.getElementById('tVal');
+const tPct = document.getElementById('tPct');
+const tRegime = document.getElementById('tRegime');
+
+function updateSliderFill(el, min, max, val) {
+  const pct = ((val - min) / (max - min)) * 100;
+  el.style.setProperty('--pct', pct + '%');
+}
+
+energySlider.addEventListener('input', () => {
+  E = parseFloat(energySlider.value);
+  eVal.textContent = E.toFixed(2);
+  updateSliderFill(energySlider, 0.05, 2.0, E);
+});
+
+barrierSlider.addEventListener('input', () => {
+  V = parseFloat(barrierSlider.value);
+  vVal.textContent = V.toFixed(2);
+  updateSliderFill(barrierSlider, 0.1, 3.0, V);
+});
+
+widthSlider.addEventListener('input', () => {
+  a = parseFloat(widthSlider.value);
+  aVal.textContent = a.toFixed(1);
+  updateSliderFill(widthSlider, 0.5, 6.0, a);
+});
+
+// init fills
+updateSliderFill(energySlider, 0.05, 2.0, E);
+updateSliderFill(barrierSlider, 0.1, 3.0, V);
+updateSliderFill(widthSlider, 0.5, 6.0, a);
+
+// ── Physics ──────────────────────────────────────────────────────────────────
+
+function computeTransmission(E, V, a) {
+  if (E >= V) {
+    // classical over-barrier — approximate exact T (no reflection from top)
+    const k1 = Math.sqrt(2 * E);
+    const k2 = Math.sqrt(2 * (E - V));
+    if (k2 === 0) return 1;
+    const num = 4 * k1 * k2;
+    const denom = Math.pow(k1 + k2, 2) - Math.pow(k1 - k2, 2) * Math.pow(Math.cos(k2 * a), 2);
+    return Math.min(1, num / (num + Math.pow(k1 * k1 - k2 * k2, 2) / (k1 * k2) * Math.pow(Math.sin(k2 * a), 2)));
+  } else {
+    const kappa = Math.sqrt(2 * (V - E));
+    // exact tunneling formula
+    const sh = Math.sinh(kappa * a);
+    const T_inv = 1 + (V * V * sh * sh) / (4 * E * (V - E));
+    return 1 / T_inv;
+  }
+}
+
+// ── Draw ─────────────────────────────────────────────────────────────────────
+
+function draw(t) {
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  // background grid
+  ctx.save();
+  ctx.strokeStyle = 'rgba(26,42,94,0.5)';
+  ctx.lineWidth = 1;
+  const gridSize = 40;
+  for (let x = 0; x < W; x += gridSize) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+  }
+  for (let y = 0; y < H; y += gridSize) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  }
+  ctx.restore();
+
+  const T = computeTransmission(E, V, a);
+
+  // Layout params
+  const margin = 60;
+  const xRange = 14; // world units shown
+  const xMin = -7, xMax = 7;
+  // barrier center at 0, width a
+  const barrierL = -a / 2;
+  const barrierR = a / 2;
+
+  function worldToX(wx) {
+    return margin + (wx - xMin) / (xMax - xMin) * (W - 2 * margin);
+  }
+
+  const midY = H * 0.55; // axis
+  const ampScale = 80; // pixels per amplitude unit
+
+  // ── Draw axes ──
+  ctx.save();
+  ctx.strokeStyle = 'rgba(74,90,138,0.8)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath(); ctx.moveTo(margin, midY); ctx.lineTo(W - margin, midY); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+
+  // axis labels
+  ctx.save();
+  ctx.fillStyle = '#4a5a8a';
+  ctx.font = '10px Space Mono';
+  ctx.fillText('ψ / V', 8, midY - 10);
+  ctx.fillText('x', W - margin + 5, midY + 4);
+  // tick marks
+  for (let wx = Math.ceil(xMin); wx <= Math.floor(xMax); wx++) {
+    const px = worldToX(wx);
+    ctx.beginPath(); ctx.moveTo(px, midY - 4); ctx.lineTo(px, midY + 4);
+    ctx.stroke();
+    if (wx !== 0) ctx.fillText(wx, px - 4, midY + 16);
+  }
+  ctx.restore();
+
+  // ── Barrier region ──
+  const bxL = worldToX(barrierL);
+  const bxR = worldToX(barrierR);
+  const vHeight = (V / 2) * ampScale;
+
+  ctx.save();
+  // barrier fill
+  ctx.fillStyle = 'rgba(255, 200, 50, 0.07)';
+  ctx.fillRect(bxL, midY - vHeight, bxR - bxL, vHeight);
+
+  // barrier stroke (top line = potential height)
+  ctx.strokeStyle = '#ffc832';
+  ctx.lineWidth = 2;
+  ctx.shadowColor = '#ffc832';
+  ctx.shadowBlur = 8;
+  ctx.beginPath();
+  ctx.moveTo(bxL, midY);
+  ctx.lineTo(bxL, midY - vHeight);
+  ctx.lineTo(bxR, midY - vHeight);
+  ctx.lineTo(bxR, midY);
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // barrier label
+  ctx.fillStyle = '#ffc832';
+  ctx.font = 'bold 11px Space Mono';
+  ctx.fillText('V₀ = ' + V.toFixed(2), (bxL + bxR) / 2 - 30, midY - vHeight - 8);
+  ctx.restore();
+
+  // ── Wave params ──
+  const k = Math.sqrt(2 * E);    // wave number outside
+  const omega = E;                // ω ≈ E (ħ=1)
+  const phi = t * omega * 0.06; // animation phase
+
+  const kappa_val = (E < V) ? Math.sqrt(2 * (V - E)) : 0;
+  const k2 = (E >= V) ? Math.sqrt(2 * (E - V)) : 0;
+
+  const R = 1 - T; // approximate reflection coeff magnitude
+  const sqrtT = Math.sqrt(T);
+  const sqrtR = Math.sqrt(R);
+
+  const STEPS = 400;
+
+  // ── Incident + reflected (left of barrier) ──
+  ctx.save();
+  ctx.beginPath();
+  let started = false;
+  for (let i = 0; i <= STEPS; i++) {
+    const wx = xMin + (barrierL - xMin) * i / STEPS;
+    const px = worldToX(wx);
+    // incident wave moving right + reflected wave moving left
+    const psi_inc = Math.sin(k * wx - phi);
+    const psi_ref = sqrtR * Math.sin(-k * wx - phi + Math.PI);
+    const psi = psi_inc + psi_ref;
+    const py = midY - psi * ampScale * 0.7;
+    if (!started) { ctx.moveTo(px, py); started = true; }
+    else ctx.lineTo(px, py);
+  }
+  ctx.strokeStyle = '#00d4ff';
+  ctx.lineWidth = 2.5;
+  ctx.shadowColor = '#00d4ff';
+  ctx.shadowBlur = 12;
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+  ctx.restore();
+
+  // ── Inside barrier ──
+  ctx.save();
+  ctx.beginPath();
+  started = false;
+  for (let i = 0; i <= STEPS; i++) {
+    const wx = barrierL + (barrierR - barrierL) * i / STEPS;
+    const px = worldToX(wx);
+    let psi;
+    if (E < V) {
+      // exponential decay + growing (standing mix)
+      const xRel = wx - barrierL;
+      const decay = Math.exp(-kappa_val * xRel);
+      const grow = Math.exp(kappa_val * xRel) * T * 0.3;
+      psi = (decay - grow) * Math.cos(phi * 0.5) * 0.85;
+    } else {
+      // oscillatory inside (lower k)
+      psi = sqrtT * Math.sin(k2 * wx - phi) * 0.9;
+    }
+    const py = midY - psi * ampScale * 0.7;
+    if (!started) { ctx.moveTo(px, py); started = true; }
+    else ctx.lineTo(px, py);
+  }
+  if (E < V) {
+    ctx.strokeStyle = '#ff6b35';
+    ctx.shadowColor = '#ff6b35';
+  } else {
+    ctx.strokeStyle = '#ffaa00';
+    ctx.shadowColor = '#ffaa00';
+  }
+  ctx.lineWidth = 2.5;
+  ctx.shadowBlur = 12;
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+  ctx.restore();
+
+  // ── Transmitted wave (right of barrier) ──
+  ctx.save();
+  ctx.beginPath();
+  started = false;
+  for (let i = 0; i <= STEPS; i++) {
+    const wx = barrierR + (xMax - barrierR) * i / STEPS;
+    const px = worldToX(wx);
+    const psi = sqrtT * Math.sin(k * wx - phi);
+    const py = midY - psi * ampScale * 0.7;
+    if (!started) { ctx.moveTo(px, py); started = true; }
+    else ctx.lineTo(px, py);
+  }
+  ctx.strokeStyle = '#39ff14';
+  ctx.lineWidth = 2.5;
+  ctx.shadowColor = '#39ff14';
+  ctx.shadowBlur = 14;
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+  ctx.restore();
+
+  // ── Amplitude envelope for transmitted ──
+  if (E < V && T < 0.5) {
+    ctx.save();
+    ctx.setLineDash([4, 6]);
+    ctx.strokeStyle = 'rgba(57,255,20,0.25)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(worldToX(barrierR), midY - sqrtT * ampScale * 0.7);
+    ctx.lineTo(worldToX(xMax), midY - sqrtT * ampScale * 0.7);
+    ctx.moveTo(worldToX(barrierR), midY + sqrtT * ampScale * 0.7);
+    ctx.lineTo(worldToX(xMax), midY + sqrtT * ampScale * 0.7);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // ── Energy level line ──
+  const eLine = midY - (E / 2) * ampScale;
+  ctx.save();
+  ctx.strokeStyle = 'rgba(0,212,255,0.35)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([8, 6]);
+  ctx.beginPath();
+  ctx.moveTo(margin, eLine);
+  ctx.lineTo(W - margin, eLine);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = 'rgba(0,212,255,0.7)';
+  ctx.font = '10px Space Mono';
+  ctx.fillText('E = ' + E.toFixed(2), margin + 4, eLine - 5);
+  ctx.restore();
+
+  // ── Update UI ──
+  tVal.textContent = T.toFixed(3);
+  tPct.textContent = (T * 100).toFixed(2) + '%';
+
+  if (E >= V) {
+    tVal.style.color = '#39ff14';
+    tVal.style.textShadow = '0 0 20px rgba(57,255,20,0.5)';
+    tRegime.className = 't-regime regime-classical';
+    tRegime.textContent = 'CLASSICAL PASS';
+  } else {
+    // color: red if very low T, orange if mid, green if high
+    const hue = T < 0.05 ? '#ff4040' : T < 0.3 ? '#ff6b35' : '#39ff14';
+    tVal.style.color = hue;
+    tVal.style.textShadow = `0 0 20px ${hue}80`;
+    tRegime.className = 't-regime regime-tunnel';
+    tRegime.textContent = 'QUANTUM TUNNELING';
+  }
+}
+
+// ── Animation loop ──────────────────────────────────────────────────────────
+let frameCount = 0;
+function animate() {
+  frameCount++;
+  draw(frameCount);
+  animId = requestAnimationFrame(animate);
+}
+
+animate();
+</script>
+</body>
+</html>
